@@ -27,16 +27,18 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-slate-950 text-white">
-      {/* Sidebar - fixed on desktop, overlay on mobile */}
-      <div className="hidden lg:block fixed left-0 top-0 h-screen w-64 z-40">
+      {/* Sidebar - hidden below lg, fixed on lg+ */}
+      <div className="hidden lg:block fixed left-0 top-0 h-screen w-64 z-40 bg-slate-900/95 backdrop-blur-xl border-r border-white/10">
         <Sidebar />
       </div>
 
-      {/* Main content - full width on mobile, ml-64 on desktop */}
+      {/* Main content - full width on mobile/tablet, ml-64 on desktop */}
       <div className="flex-1 flex flex-col min-h-screen lg:ml-64">
         <TopNavbar />
-        <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 lg:px-8 overflow-x-hidden">
-          {children}
+        <main className="flex-1 w-full">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>
