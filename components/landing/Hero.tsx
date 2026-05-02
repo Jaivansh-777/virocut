@@ -56,16 +56,16 @@ export function Hero() {
             Upload once. Get viral clips for Reels, TikTok & YouTube Shorts with AI-generated captions.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
             <Link href="/signup" className="w-full sm:w-auto">
-              <Button size="lg" className="w-full sm:w-auto group bg-indigo-600 hover:bg-indigo-700">
-                Start Free
-                <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              <Button size="lg" className="w-full sm:w-auto group bg-indigo-600 hover:bg-indigo-700 min-h-[48px] touch-manipulation">
+                <span className="truncate">Start Free</span>
+                <ArrowRight className="w-4 h-4 flex-shrink-0 transition-transform duration-300 group-hover:translate-x-0.5" />
               </Button>
             </Link>
-            <Button variant="secondary" size="lg" className="w-full sm:w-auto group bg-slate-800/50 border-white/10 hover:bg-slate-800">
-              <Play className="w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
-              Watch Demo
+            <Button variant="secondary" size="lg" className="w-full sm:w-auto group bg-slate-800/50 border-white/10 hover:bg-slate-800 min-h-[48px] touch-manipulation">
+              <Play className="w-4 h-4 flex-shrink-0 transition-transform duration-300 group-hover:scale-110" />
+              <span className="truncate">Watch Demo</span>
             </Button>
           </div>
         </motion.div>
@@ -79,7 +79,7 @@ export function Hero() {
           <div className="relative max-w-3xl mx-auto">
             <div className="absolute -inset-4 bg-gradient-to-r from-indigo-500/[0.1] via-purple-500/[0.1] to-indigo-500/[0.1] rounded-3xl blur-2xl" />
 
-            <div className="relative glass-card rounded-2xl p-1.5 sm:p-2 bg-slate-900/50 border-white/10">
+            <div className="relative glass-card rounded-2xl p-1.5 sm:p-2 bg-slate-900/50 border border-white/10">
               <div className="aspect-video rounded-xl bg-slate-800/50 flex items-center justify-center overflow-hidden">
                 <div className="text-center">
                   <motion.button

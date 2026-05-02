@@ -1,36 +1,59 @@
 import logging
+import threading
 from pathlib import Path
+from datetime import datetime
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 # Load environment variables from .env file
 load_dotenv()
 
-from routes import upload, process
+# ---------------------------------------------------------------------------
+# In-memory job store (simple dict, not for multi-process)
+# ---------------------------------------------------------------------------
+jobs = {}
+JOBS_LOCK = threading.Lock()
 
-# ---------------------------------------------------------------------------
-# Logging
-# ---------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
-logger = logging.getLogger("app")
+
+def update_job(job_id: str, **kwargs):
+    """Thread-safe job update."""
+    with JOBS_LOCK:
+        if job_id in jobs:
+            jobs[job_id].update(kwargs)
+            jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
+
+
+def get_job(job_id: str):
+    """Thread-safe job get."""
+    with JOBS_LOCK:
+        return jobs.get(job_id)
+
+
+def create_job(job_id: str, filename: str):
+    """Create a new job."""
+    with JOBS_LOCK:
+        jobs[job_id] = {
+            "job_id": job_id,
+            "status": "queued",
+            "progress": 0,
+            "filename": filename,
+            "result": None,
+            "error": None,
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+
 
 # ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
-UPLOAD_DIR = Path(__file__).parent / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
-
-CLIPS_DIR = Path(__file__).parent / "clips"
-CLIPS_DIR.mkdir(exist_ok=True)
-
-
 def create_app() -> FastAPI:
+    from routes import upload, process
+
     app = FastAPI(
         title="ViroCut API",
         description="AI-powered video clipping tool that turns long videos into viral-ready shorts",
@@ -50,6 +73,8 @@ def create_app() -> FastAPI:
     )
 
     # Serve clips as static files
+    CLIPS_DIR = Path(__file__).parent / "clips"
+    CLIPS_DIR.mkdir(exist_ok=True)
     app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
 
     # Register route modules
@@ -60,7 +85,37 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"status": "ok"}
 
+    @app.get("/status/{job_id}")
+    async def get_status(job_id: str):
+        """Return job status, progress, result, or error."""
+        job = get_job(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return JSONResponse(content={
+            "job_id": job["job_id"],
+            "status": job["status"],
+            "progress": job["progress"],
+            "filename": job["filename"],
+            "result": job["result"],
+            "error": job["error"],
+            "created_at": job["created_at"],
+            "updated_at": job["updated_at"],
+        })
+
     return app
 
 
 app = create_app()
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger("app")
+
+# Create upload dirs after app is created
+UPLOAD_DIR = Path(__file__).parent / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)

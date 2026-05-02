@@ -1,19 +1,28 @@
 /** Real API client for the FastAPI backend. */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://virocut-backend.onrender.com";
+console.log("API URL:", API_BASE);
 
 /* ------------------------------------------------------------------ */
-/* Upload a video file → returns the stored filename                  */
-/* Accepts an optional onProgress callback for upload progress        */
+/* Upload a video file → returns job_id (non-blocking)                */
+/* Accepts an optional onProgress callback for upload progress           */
 /* ------------------------------------------------------------------ */
+export interface UploadResult {
+  job_id: string;
+  status: string;
+  filename: string;
+  size_bytes: number;
+}
+
 export async function uploadVideo(
   file: File,
   onProgress?: (percent: number) => void
-): Promise<string> {
+): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120_000); // 120s timeout
+
     const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append("file", file);
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && onProgress) {
@@ -23,20 +32,19 @@ export async function uploadVideo(
     };
 
     xhr.onload = () => {
-      // Only handle final POST response (status 200-299)
-      // Ignore preflight OPTIONS responses or intermediate statuses
+      clearTimeout(timeoutId);
+
+      // Ignore non-final responses
+      if (xhr.status === 0) return;
+
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          const data: { filename: string } = JSON.parse(xhr.responseText);
-          resolve(data.filename);
+          const data: UploadResult = JSON.parse(xhr.responseText);
+          resolve(data);
         } catch {
           reject(new Error("Invalid response from server"));
         }
-      } else if (xhr.status === 0) {
-        // Status 0 usually means CORS preflight issue or network error before upload
-        // Don't reject here - let onerror handle actual network errors
       } else {
-        // Actual error from POST request
         try {
           const body = JSON.parse(xhr.responseText);
           reject(new Error(body.detail ?? `Upload failed (${xhr.status})`));
@@ -47,8 +55,16 @@ export async function uploadVideo(
     };
 
     xhr.onerror = () => {
+      clearTimeout(timeoutId);
       reject(new Error("Network error during upload"));
     };
+
+    xhr.ontimeout = () => {
+      reject(new Error("Upload timed out after 120 seconds"));
+    };
+
+    const formData = new FormData();
+    formData.append("file", file);
 
     xhr.open("POST", `${API_BASE}/upload/`);
     xhr.send(formData);
@@ -56,7 +72,55 @@ export async function uploadVideo(
 }
 
 /* ------------------------------------------------------------------ */
-/* Process a previously uploaded video → clips, captions, hooks       */
+/* Poll job status until completed or failed                        */
+/* ------------------------------------------------------------------ */
+export interface JobStatus {
+  job_id: string;
+  status: "queued" | "processing" | "completed" | "failed";
+  progress: number;
+  filename: string;
+  result?: ProcessResult | null;
+  error?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function pollJobStatus(
+  jobId: string,
+  onUpdate: (status: JobStatus) => void,
+  intervalMs = 3000
+): Promise<JobStatus> {
+  return new Promise((resolve, reject) => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/status/${jobId}`);
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.detail ?? `Status check failed (${res.status})`);
+        }
+
+        const status: JobStatus = await res.json();
+        onUpdate(status);
+
+        if (status.status === "completed") {
+          resolve(status);
+        } else if (status.status === "failed") {
+          reject(new Error(status.error ?? "Processing failed"));
+        } else {
+          // queued or processing → keep polling
+          setTimeout(poll, intervalMs);
+        }
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    };
+
+    poll();
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* (Legacy) Process a previously uploaded video → clips, captions, hooks */
 /* ------------------------------------------------------------------ */
 export interface ProcessResult {
   transcript: string;
@@ -70,6 +134,8 @@ export interface ProcessResult {
     titles?: string[];
     hooks?: string[];
     captions?: string[];
+    view_url?: string;
+    file_id?: string;
   }[];
 }
 

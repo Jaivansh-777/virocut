@@ -12,7 +12,7 @@ export function TopNavbar() {
   return (
     <header className="sticky top-0 z-30 bg-slate-950/80 backdrop-blur-xl border-b border-white/10">
       <div className="flex items-center justify-between px-4 lg:px-6 py-3">
-        <div className="lg:ml-0 ml-10" />
+        <div className="lg:ml-0" />
 
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="p-2.5 relative hover:bg-white/5 rounded-xl transition-colors">

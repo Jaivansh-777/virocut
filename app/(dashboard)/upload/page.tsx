@@ -95,10 +95,10 @@ export default function UploadPage() {
     setUploading(true);
 
     try {
-      // Upload the first file (backend stores one at a time)
       const uploadedFile = files[0];
 
-      const filename = await uploadVideo(uploadedFile.file, (percent) => {
+      // Upload and get job_id (non-blocking)
+      const result = await uploadVideo(uploadedFile.file, (percent) => {
         setFiles((prev) =>
           prev.map((f) => (f.id === uploadedFile.id ? { ...f, progress: percent } : f))
         );
@@ -108,10 +108,10 @@ export default function UploadPage() {
         prev.map((f) => (f.id === uploadedFile.id ? { ...f, progress: 100 } : f))
       );
 
-      addToast({ type: "success", message: "Video uploaded successfully!" });
+      addToast({ type: "success", message: "Video queued! Processing started..." });
 
-      // Pass filename to processing page via search params
-      router.push(`/processing?filename=${encodeURIComponent(filename)}`);
+      // Navigate to processing page with job_id
+      router.push(`/processing?job_id=${encodeURIComponent(result.job_id)}`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Upload failed. Please try again.";
       addToast({ type: "error", message });

@@ -7,78 +7,65 @@ import { Video, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { ProcessingSteps } from "@/components/ui/Loader";
 import { useAppStore } from "@/store/appStore";
-import { processVideo } from "@/lib/api";
+import { pollJobStatus } from "@/lib/api";
 
-const steps = ["Uploading video...", "Transcribing audio with Whisper...", "Detecting viral moments...", "Generating clips with FFmpeg...", "Creating viral content with Groq...", "Uploading clips to Drive..."];
+const steps = ["Queued...", "Transcribing audio with Whisper...", "Detecting viral moments...", "Generating clips with FFmpeg...", "Creating viral content with Groq...", "Uploading clips to Drive..."];
 
 export default function ProcessingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const addToast = useAppStore((s) => s.addToast);
 
-  const filename = searchParams.get("filename");
+  const jobId = searchParams.get("job_id");
 
   const [currentStep, setCurrentStep] = useState(0);
   const [progress, setProgress] = useState(0);
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const processStartedRef = useRef(false); // Guard against duplicate calls
 
   useEffect(() => {
-    if (!filename) {
+    if (!jobId) {
       router.push("/upload");
       return;
     }
 
     let cancelled = false;
-    const timeouts: NodeJS.Timeout[] = [];
 
-    const process = async () => {
-      if (processStartedRef.current) {
-        console.log("Processing already started, skipping duplicate call");
-        return;
-      }
-      processStartedRef.current = true;
-
+    const poll = async () => {
       try {
-        // Animate steps while API call runs in background
-        const animateSteps = async () => {
-          const totalSteps = steps.length;
-          const stepDuration = 2000; // 2 seconds per step for better UX
+        const status = await pollJobStatus(
+          jobId,
+          (status) => {
+            // Update UI based on status
+            if (status.progress > progress) {
+              setProgress(status.progress);
+            }
 
-          for (let i = 0; i < totalSteps; i++) {
-            if (cancelled) return;
+            // Map status to step
+            const stepIndex = Math.min(
+              Math.floor(status.progress / (100 / steps.length)),
+              steps.length - 1
+            );
+            setCurrentStep(stepIndex);
+          },
+          3000
+        );
 
-            setCurrentStep(i);
-            setProgress(((i + 1) / totalSteps) * 100);
+        if (status.status === "completed" && status.result) {
+          // Store results in sessionStorage for the results page
+          sessionStorage.setItem("processResult", JSON.stringify(status.result));
+          setProgress(100);
+          setComplete(true);
 
-            // Wait for step duration
-            await new Promise<void>((resolve) => {
-              const t = setTimeout(resolve, stepDuration);
-              timeouts.push(t);
-            });
-          }
-        };
-
-        // Run API call and animation in parallel
-        const [result] = await Promise.all([
-          processVideo(filename),
-          animateSteps(),
-        ]);
-
-        // Store results in sessionStorage for the results page
-        sessionStorage.setItem("processResult", JSON.stringify(result));
-
-        setProgress(100);
-        setComplete(true);
-
-        // Wait a moment then redirect to results
-        const t = setTimeout(() => {
-          if (!cancelled) {
-            router.push("/results");
-          }
-        }, 1500);
-        timeouts.push(t);
+          // Wait a moment then redirect to results
+          setTimeout(() => {
+            if (!cancelled) {
+              router.push("/results");
+            }
+          }, 1500);
+        } else if (status.status === "failed") {
+          throw new Error(status.error ?? "Processing failed");
+        }
       } catch (err: unknown) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : "Processing failed. Please try again.";
@@ -88,16 +75,14 @@ export default function ProcessingPage() {
       }
     };
 
-    process();
+    poll();
 
     return () => {
       cancelled = true;
-      processStartedRef.current = false; // Reset guard on cleanup
-      timeouts.forEach(clearTimeout);
     };
-  }, [filename, router, addToast]);
+  }, [jobId, router, addToast]);
 
-  if (!filename) return null;
+  if (!jobId) return null;
 
   if (error) {
     return (
@@ -108,7 +93,7 @@ export default function ProcessingPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <Card className="p-8 sm:p-10 text-center">
+            <Card className="p-8 sm:p-10 text-center bg-slate-900/50 backdrop-blur-xl border border-white/10">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-red-500/[0.12] flex items-center justify-center mx-auto mb-6">
                 <Video className="w-8 h-8 sm:w-10 sm:h-10 text-red-400" />
               </div>
@@ -116,7 +101,7 @@ export default function ProcessingPage() {
               <p className="text-sm text-slate-400 mb-6">{error}</p>
               <button
                 onClick={() => router.push("/upload")}
-                className="px-6 py-2.5 rounded-xl text-sm font-medium bg-white/[0.06] hover:bg-white/[0.1] text-white transition-colors"
+                className="px-6 py-2.5 rounded-xl text-sm font-medium bg-slate-800/50 hover:bg-slate-800 border border-white/10 text-white transition-colors touch-manipulation min-h-[44px]"
               >
                 Try Again
               </button>
