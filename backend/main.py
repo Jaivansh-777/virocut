@@ -49,65 +49,58 @@ def create_job(job_id: str, filename: str):
 
 
 # ---------------------------------------------------------------------------
-# App factory
+# App and CORS
 # ---------------------------------------------------------------------------
-def create_app() -> FastAPI:
-    from routes import upload, process
+app = FastAPI(
+    title="ViroCut API",
+    description="AI-powered video clipping tool that turns long videos into viral-ready shorts",
+    version="1.0.0",
+)
 
-    app = FastAPI(
-        title="ViroCut API",
-        description="AI-powered video clipping tool that turns long videos into viral-ready shorts",
-        version="1.0.0",
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://virocut-n514.vercel.app",
+        "https://virocut.vercel.app",
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-    # CORS — allow Next.js dev server and Vercel production
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "https://virocut-n514.vercel.app",
-            "https://virocut.vercel.app",
-        ],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+# Health check
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
-    # Serve clips as static files
-    CLIPS_DIR = Path(__file__).parent / "clips"
-    CLIPS_DIR.mkdir(exist_ok=True)
-    app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
+# Status endpoint
+@app.get("/status/{job_id}")
+async def get_status(job_id: str):
+    """Return job status, progress, result, or error."""
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return JSONResponse(content={
+        "job_id": job["job_id"],
+        "status": job["status"],
+        "progress": job["progress"],
+        "filename": job["filename"],
+        "result": job["result"],
+        "error": job["error"],
+        "created_at": job["created_at"],
+        "updated_at": job["updated_at"],
+    })
 
-    # Register route modules
-    app.include_router(upload.router)
-    app.include_router(process.router)
+# Serve clips as static files
+CLIPS_DIR = Path(__file__).parent / "clips"
+CLIPS_DIR.mkdir(exist_ok=True)
+app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
 
-    @app.get("/health")
-    async def health() -> dict:
-        return {"status": "ok"}
-
-    @app.get("/status/{job_id}")
-    async def get_status(job_id: str):
-        """Return job status, progress, result, or error."""
-        job = get_job(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
-        return JSONResponse(content={
-            "job_id": job["job_id"],
-            "status": job["status"],
-            "progress": job["progress"],
-            "filename": job["filename"],
-            "result": job["result"],
-            "error": job["error"],
-            "created_at": job["created_at"],
-            "updated_at": job["updated_at"],
-        })
-
-    return app
-
-
-app = create_app()
+# Register route modules
+from routes import upload, process
+app.include_router(upload.router)
+app.include_router(process.router)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -118,6 +111,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("app")
 
-# Create upload dirs after app is created
+# Create upload dirs
 UPLOAD_DIR = Path(__file__).parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
