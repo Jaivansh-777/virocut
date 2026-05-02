@@ -2,48 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "tailwindcss";
 
-@theme {
-  --color-bg: #06070a;
-  --color-bg-elevated: #0c0e14;
-  --color-surface: #111318;
-  --color-surface-hover: #16181f;
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-border-hover: rgba(255, 255, 255, 0.1);
-  --color-text: #e2e8f0;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-primary-50: #eef2ff;
-  --color-primary-100: #e0e7ff;
-  --color-primary-200: #c7d2fe;
-  --color-primary-300: #a5b4fc;
-  --color-primary-400: #818cf8;
-  --color-primary-500: #6366f1;
-  --color-primary-600: #4f46e5;
-  --color-primary-700: #4338ca;
-  --color-primary-800: #3730a3;
-  --color-primary-900: #312e81;
-  --color-accent-400: #34d399;
-  --color-accent-500: #10b981;
-  --color-accent-600: #059669;
-  --animate-gradient-x: gradient-x 15s ease infinite;
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-shimmer: shimmer 2s linear infinite;
-  --keyframes-gradient-x: {
-    0%, 100%: { background-size: 200% 200%; background-position: left center };
-    50%: { background-size: 200% 200%; background-position: right center };
-  };
-  --keyframes-float: {
-    0%, 100%: { transform: translateY(0) };
-    50%: { transform: translateY(-20px) };
-  };
-  --keyframes-shimmer: {
-    0%: { backgroundPosition: "-200% 0" };
-    100%: { backgroundPosition: "200% 0" };
-  };
-}
 
 @layer base {
   * {

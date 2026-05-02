@@ -45,8 +45,8 @@ export default function ResultsPage() {
   if (!result) return null;
 
   // Sort clips by viral_score descending (best clip first)
-  const sortedClips = [...result.clips].sort((a, b) => (b.viral_score ?? 0) - (a.viral_score ?? 0));
-  const bestClipScore = sortedClips[0]?.viral_score ?? 0;
+  const sortedClips = [...result.clips].sort((a, b) => ((b as any).viral_score ?? 0) - ((a as any).viral_score ?? 0));
+  const bestClipScore = (sortedClips[0] as any)?.viral_score ?? 0;
 
   const copyText = async (index: number, text: string) => {
     await navigator.clipboard.writeText(text);
@@ -106,7 +106,7 @@ export default function ResultsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {sortedClips.map((clip, index) => {
             const PlatformIcon = platformIcons[clip.platform ?? "reels"] || Film;
-            const isBestClip = clip.viral_score === bestClipScore && index === 0;
+            const isBestClip = (clip as any).viral_score === bestClipScore && index === 0;
             return (
               <motion.div
                 key={index}
@@ -155,10 +155,10 @@ export default function ResultsPage() {
                         </span>
                       </div>
 
-                      {clip.viral_score !== undefined && (
+                      {(clip as any).viral_score !== undefined && (
                         <div className="absolute top-3 right-3">
                           <span className="glass-card px-2 py-1 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-400 bg-slate-900/80 backdrop-blur-xl">
-                            Score: {clip.viral_score}
+                            Score: {(clip as any).viral_score}
                           </span>
                         </div>
                       )}
@@ -174,8 +174,8 @@ export default function ResultsPage() {
                       )}
                     </div>
                     <p className="text-xs sm:text-sm text-slate-400 mb-1">Start: {clip.start}s · Duration: {clip.duration}s</p>
-                    {clip.reason && (
-                      <p className="text-xs text-indigo-400 mb-3">🎯 {clip.reason}</p>
+                    {(clip as any).reason && (
+                      <p className="text-xs text-indigo-400 mb-3">🎯 {(clip as any).reason}</p>
                     )}
 
                     {/* Clip-specific titles */}
