@@ -1,0 +1,16 @@
+.next/
+node_modules/
+.env
+.env.local
+backend/.env
+backend/uploads/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.json
+!package.json
+!tsconfig.json
+!next.config.ts
+!tailwind.config.ts
+!postcss.config.mjs
