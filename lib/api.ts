@@ -1,7 +1,12 @@
 /** Real API client for the FastAPI backend. */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://virocut-backend.onrender.com";
-console.log("API URL:", API_BASE);
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "https://virocut.onrender.com";
+console.log("[API] Base URL:", API_BASE);
+
+// Validate API URL
+if (!API_BASE || API_BASE === "undefined") {
+  console.error("[API] ERROR: NEXT_PUBLIC_BACKEND_URL is not set!");
+}
 
 /* ------------------------------------------------------------------ */
 /* Upload a video file → returns job_id (non-blocking)                */
@@ -20,9 +25,12 @@ export async function uploadVideo(
 ): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120_000); // 120s timeout
+    // 120s timeout for upload connection
+    const timeoutId = setTimeout(() => controller.abort(), 120_000);
 
     const xhr = new XMLHttpRequest();
+    const uploadUrl = `${API_BASE}/upload/`;
+    console.log("[API] Uploading to:", uploadUrl);
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && onProgress) {
@@ -33,6 +41,7 @@ export async function uploadVideo(
 
     xhr.onload = () => {
       clearTimeout(timeoutId);
+      console.log("[API] Upload response status:", xhr.status);
 
       // Ignore non-final responses
       if (xhr.status === 0) return;
@@ -40,6 +49,7 @@ export async function uploadVideo(
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const data: UploadResult = JSON.parse(xhr.responseText);
+          console.log("[API] Upload success, job_id:", data.job_id);
           resolve(data);
         } catch {
           reject(new Error("Invalid response from server"));
@@ -47,8 +57,10 @@ export async function uploadVideo(
       } else {
         try {
           const body = JSON.parse(xhr.responseText);
+          console.error("[API] Upload failed:", body);
           reject(new Error(body.detail ?? `Upload failed (${xhr.status})`));
         } catch {
+          console.error("[API] Upload failed with status:", xhr.status);
           reject(new Error(`Upload failed (${xhr.status})`));
         }
       }
@@ -56,19 +68,44 @@ export async function uploadVideo(
 
     xhr.onerror = () => {
       clearTimeout(timeoutId);
-      reject(new Error("Network error during upload"));
+      console.error("[API] Network error connecting to:", uploadUrl);
+      reject(new Error(`Cannot connect to server at ${API_BASE}. Please check your internet and try again.`));
     };
 
     xhr.ontimeout = () => {
-      reject(new Error("Upload timed out after 120 seconds"));
+      console.error("[API] Upload timed out after 120s");
+      reject(new Error("Upload timed out. The server may be starting up (free tier) — please try again in a moment."));
     };
 
     const formData = new FormData();
     formData.append("file", file);
 
-    xhr.open("POST", `${API_BASE}/upload/`);
+    xhr.open("POST", uploadUrl);
     xhr.send(formData);
   });
+}
+
+/* ------------------------------------------------------------------ */
+/* Health check - wake up sleeping backend (Render free tier)       */
+/* ------------------------------------------------------------------ */
+export async function checkBackendHealth(): Promise<boolean> {
+  try {
+    const healthUrl = `${API_BASE}/health`;
+    console.log("[API] Health check:", healthUrl);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10_000); // 10s timeout for health check
+
+    const res = await fetch(healthUrl, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    console.log("[API] Health check status:", res.status);
+    return res.ok;
+  } catch (err) {
+    console.error("[API] Health check failed:", err);
+    return false;
+  }
 }
 
 /* ------------------------------------------------------------------ */
