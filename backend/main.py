@@ -38,22 +38,15 @@ def create_app() -> FastAPI:
     )
 
     # CORS — allow Next.js dev server and Vercel production
-    # Get allowed origins from environment variable or use defaults
-    import os
-    cors_origins = os.environ.get("CORS_ORIGINS", "").split(",") if os.environ.get("CORS_ORIGINS") else [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3001",
-    ]
-
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins,
-        allow_credentials=False,
+        allow_origins=[
+            "http://localhost:3000",
+            "https://virocut.vercel.app",
+        ],
+        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["*"],
     )
 
     # Serve clips as static files
