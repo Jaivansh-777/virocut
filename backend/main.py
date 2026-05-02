@@ -65,6 +65,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[
             "http://localhost:3000",
+            "http://localhost:3001",
+            "https://virocut-n514.vercel.app",
             "https://virocut.vercel.app",
         ],
         allow_credentials=True,
