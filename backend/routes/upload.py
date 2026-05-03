@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 
 from utils.file_handler import save_upload
-from main import create_job, update_job, get_job
+from job_store import create_job, update_job, get_job
 from config import UPLOAD_DIR, OUTPUT_DIR
 from services.transcription_service import transcribe_video
 from services.ffmpeg_service import process_video
