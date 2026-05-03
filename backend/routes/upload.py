@@ -4,12 +4,13 @@ import logging
 import threading
 import uuid
 from pathlib import Path
+from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 
 from utils.file_handler import save_upload
-from job_store import create_job, update_job, get_job
+from store import jobs, JOBS_LOCK
 from config import UPLOAD_DIR, OUTPUT_DIR
 from services.transcription_service import transcribe_video
 from services.ffmpeg_service import process_video
@@ -41,7 +42,13 @@ def _background_processing(job_id: str, filename: str):
     """
     try:
         import traceback
-        update_job(job_id, status="processing", progress=10)
+        print(f"BACKGROUND PROCESSING: jobs dict id: {id(jobs)}")
+        print(f"BACKGROUND PROCESSING: Updating job {job_id} to processing")
+        with JOBS_LOCK:
+            if job_id in jobs:
+                jobs[job_id]["status"] = "processing"
+                jobs[job_id]["progress"] = 10
+                jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 1. Transcribe
         logger.info("[Job %s] Step1: Transcribing...", job_id)
@@ -61,13 +68,22 @@ def _background_processing(job_id: str, filename: str):
 
         logger.info("[Job %s] Transcript length: %d characters, %d segments",
                      job_id, len(transcript), len(segments))
-        update_job(job_id, progress=30)
+        with JOBS_LOCK:
+            if job_id in jobs:
+                jobs[job_id]["progress"] = 30
+                jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 2. Process video (FFmpeg + viral detection)
         logger.info("[Job %s] Step2: Processing video with FFmpeg...", job_id)
-        update_job(job_id, progress=50)
+        with JOBS_LOCK:
+            if job_id in jobs:
+                jobs[job_id]["progress"] = 50
+                jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
         result = process_video(video_path, segments, transcript)
-        update_job(job_id, progress=70)
+        with JOBS_LOCK:
+            if job_id in jobs:
+                jobs[job_id]["progress"] = 70
+                jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 3. Generate per-clip AI content (Groq)
         logger.info("[Job %s] Step3: Generating AI content with Groq...", job_id)
@@ -92,7 +108,10 @@ def _background_processing(job_id: str, filename: str):
                 clip["hooks"] = ["Check this out!"]
                 clip["captions"] = ["Amazing moment from video"]
 
-        update_job(job_id, progress=85)
+        with JOBS_LOCK:
+            if job_id in jobs:
+                jobs[job_id]["progress"] = 85
+                jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 4. Upload clips to Google Drive
         logger.info("[Job %s] Step4: Uploading clips to Drive...", job_id)
@@ -123,11 +142,19 @@ def _background_processing(job_id: str, filename: str):
             logger.warning("[Job %s] Failed to delete original video: %s", job_id, e)
 
         result["transcript"] = transcript
-        update_job(job_id, progress=100)
+        with JOBS_LOCK:
+            if job_id in jobs:
+                jobs[job_id]["progress"] = 100
+                jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 5. Mark completed
         logger.info("[Job %s] Processing completed successfully", job_id)
-        update_job(job_id, status="completed", result=result, progress=100)
+        with JOBS_LOCK:
+            if job_id in jobs:
+                jobs[job_id]["status"] = "completed"
+                jobs[job_id]["result"] = result
+                jobs[job_id]["progress"] = 100
+                jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
     except Exception as e:
         import traceback
@@ -135,7 +162,12 @@ def _background_processing(job_id: str, filename: str):
         logger.error("[Job %s] Processing failed: %s\n%s", job_id, str(e), error_trace)
         # Always update job status, never crash the server
         try:
-            update_job(job_id, status="failed", error=str(e)[:500], progress=100)
+            with JOBS_LOCK:
+                if job_id in jobs:
+                    jobs[job_id]["status"] = "failed"
+                    jobs[job_id]["error"] = str(e)[:500]
+                    jobs[job_id]["progress"] = 100
+                    jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
         except Exception as update_err:
             logger.error("[Job %s] Failed to update job status: %s", job_id, update_err)
 
@@ -159,7 +191,13 @@ def _background_processing(job_id: str, filename: str):
                 ],
                 "transcript": "Demo transcript - processing failed, showing demo content"
             }
-            update_job(job_id, status="completed", result=demo_result, progress=100, error=f"Original error: {str(e)[:200]}")
+            with JOBS_LOCK:
+                if job_id in jobs:
+                    jobs[job_id]["status"] = "completed"
+                    jobs[job_id]["result"] = demo_result
+                    jobs[job_id]["error"] = f"Original error: {str(e)[:200]}"
+                    jobs[job_id]["progress"] = 100
+                    jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
             logger.info("[Job %s] Returning demo clips due to processing failure", job_id)
         except Exception:
             pass  # Already logged above
@@ -207,7 +245,20 @@ async def upload_video(file: UploadFile = File(...)) -> JSONResponse:
 
     # 5. Create job
     job_id = str(uuid.uuid4())
-    create_job(job_id, saved_name)
+    print(f"UPLOAD: Creating job {job_id} for {saved_name}")
+    with JOBS_LOCK:
+        jobs[job_id] = {
+            "job_id": job_id,
+            "status": "queued",
+            "progress": 0,
+            "filename": saved_name,
+            "result": None,
+            "error": None,
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
+        }
+    print(f"UPLOAD: jobs dict id: {id(jobs)}")
+    print(f"UPLOAD: Available jobs: {list(jobs.keys())}")
     logger.info("Created job %s for file %s (%d bytes)", job_id, saved_name, size_bytes)
 
     # 6. Start background processing (non-blocking)

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from config import UPLOAD_DIR, OUTPUT_DIR
-from job_store import create_job, update_job, get_job
+from store import jobs, JOBS_LOCK
 
 
 # ---------------------------------------------------------------------------
@@ -41,9 +41,15 @@ async def health():
 @app.get("/status/{job_id}")
 async def get_status(job_id: str):
     """Return job status, progress, result, or error."""
+    print("STATUS ENDPOINT: jobs dict id:", id(jobs))
+    print("STATUS ENDPOINT: Available jobs:", list(jobs.keys()))
+    
     try:
-        job = get_job(job_id)
+        with JOBS_LOCK:
+            job = jobs.get(job_id)
+        
         if not job:
+            print(f"STATUS ENDPOINT: Job {job_id} not found")
             return JSONResponse(content={
                 "job_id": job_id,
                 "status": "failed",
@@ -54,6 +60,8 @@ async def get_status(job_id: str):
                 "created_at": "",
                 "updated_at": "",
             })
+        
+        print(f"STATUS ENDPOINT: Job {job_id} found, status: {job['status']}")
         return JSONResponse(content={
             "job_id": job["job_id"],
             "status": job["status"],
