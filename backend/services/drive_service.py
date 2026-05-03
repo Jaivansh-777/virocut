@@ -15,19 +15,31 @@ DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID", "")
 _drive_service = None
 _credentials = None
 
+# Optional imports - service will be None if not available
+try:
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import InstalledAppFlow
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+    DRIVE_AVAILABLE = True
+except ImportError as e:
+    DRIVE_AVAILABLE = False
+    logger.warning("Google Drive libraries not installed: %s", e)
+    logger.warning("Drive upload will be disabled")
+
 
 def _get_credentials():
     """Get or refresh OAuth credentials for user's Google account."""
     global _credentials
 
+    if not DRIVE_AVAILABLE:
+        return None
+
     if _credentials is not None and _credentials.valid:
         return _credentials
 
     try:
-        from google.oauth2.credentials import Credentials
-        from google_auth_oauthlib.flow import InstalledAppFlow
-        from google.auth.transport.requests import Request
-
         scopes = ["https://www.googleapis.com/auth/drive.file"]
 
         # Load existing token if available
@@ -65,12 +77,13 @@ def _get_drive_service():
     """Create and return Google Drive API service using OAuth credentials."""
     global _drive_service
 
+    if not DRIVE_AVAILABLE:
+        return None
+
     if _drive_service is not None:
         return _drive_service
 
     try:
-        from googleapiclient.discovery import build
-
         creds = _get_credentials()
         if not creds:
             return None
@@ -94,9 +107,11 @@ def upload_clip_to_drive(file_path: str, filename: str) -> dict:
     Returns:
         dict with 'file_id', 'url', 'view_url' keys, or empty dict on failure
     """
-    try:
-        from googleapiclient.http import MediaFileUpload
+    if not DRIVE_AVAILABLE:
+        logger.warning("Drive service not available, skipping upload")
+        return {}
 
+    try:
         service = _get_drive_service()
         if not service:
             logger.error("Drive service not available")

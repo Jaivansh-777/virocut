@@ -6,7 +6,6 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from groq import Groq
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,7 +19,14 @@ API_KEY = os.environ.get("GROQ_API_KEY", "")
 if not API_KEY:
     logger.warning("GROQ_API_KEY not set in environment or .env file")
 
-client = Groq(api_key=API_KEY)
+# Optional import - service will use fallbacks if not available
+try:
+    from groq import Groq
+    client = Groq(api_key=API_KEY) if API_KEY else None
+except ImportError:
+    Groq = None
+    client = None
+    logger.warning("groq module not installed. AI features will use fallback mode.")
 
 MODEL_NAME = "llama-3.1-8b-instant"
 
@@ -30,6 +36,9 @@ GROQ_TIMEOUT = 30
 
 def _call_groq(prompt: str) -> str | None:
     """Call Groq API and return response text or None on failure."""
+    if client is None:
+        logger.warning("Groq client not available, using fallback")
+        return None
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
