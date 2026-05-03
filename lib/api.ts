@@ -130,24 +130,33 @@ export async function pollJobStatus(
   return new Promise((resolve, reject) => {
     const poll = async () => {
       try {
-        const res = await fetch(`${API_BASE}/status/${jobId}`);
+        const pollUrl = `${API_BASE}/status/${jobId}`;
+        console.log("Polling:", pollUrl);
+        
+        const res = await fetch(pollUrl);
+        console.log("Status response:", res.status);
+        
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
+          console.error("Status check failed:", res.status, body);
           throw new Error(body.detail ?? `Status check failed (${res.status})`);
         }
 
         const status: JobStatus = await res.json();
+        console.log("Job status:", status.status, "progress:", status.progress);
         onUpdate(status);
 
         if (status.status === "completed") {
           resolve(status);
         } else if (status.status === "failed") {
+          console.error("Job failed:", status.error);
           reject(new Error(status.error ?? "Processing failed"));
         } else {
           // queued or processing → keep polling
           setTimeout(poll, intervalMs);
         }
       } catch (err) {
+        console.error("Poll error:", err);
         reject(err instanceof Error ? err : new Error(String(err)));
       }
     };

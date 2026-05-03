@@ -9,6 +9,8 @@ import { ProcessingSteps } from "@/components/ui/Loader";
 import { useAppStore } from "@/store/appStore";
 import { pollJobStatus } from "@/lib/api";
 
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "https://virocut.onrender.com";
+
 const steps = ["Queued...", "Transcribing audio with Whisper...", "Detecting viral moments...", "Generating clips with FFmpeg...", "Creating viral content with Groq...", "Uploading clips to Drive..."];
 
 export default function ProcessingPage() {
@@ -68,7 +70,17 @@ export default function ProcessingPage() {
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : "Processing failed. Please try again.";
+          let message = "Processing failed. Please try again.";
+          
+          if (err instanceof Error) {
+            message = err.message;
+            // Check if it's a fetch error (network issue)
+            if (err.message.includes("fetch")) {
+              message = `Cannot connect to server at ${API_BASE}. Please check your internet connection.`;
+            }
+          }
+          
+          console.error("Processing error:", err);
           setError(message);
           addToast({ type: "error", message });
         }
