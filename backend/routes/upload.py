@@ -9,12 +9,11 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 
 from utils.file_handler import save_upload
-from main import create_job, update_job, get_job
+from main import create_job, update_job, get_job, UPLOAD_DIR
 from services.transcription_service import transcribe_video
 from services.ffmpeg_service import process_video
 from services.ai_service import generate_clip_content
 from services.drive_service import upload_clip_to_drive
-from routes import process as process_module
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ def _background_processing(job_id: str, filename: str):
         # 1. Transcribe
         logger.info("[Job %s] Step 1: Transcribing...", job_id)
         update_job(job_id, progress=20)
-        transcription_result = transcribe_video(str(process_module.UPLOAD_DIR / filename), model_size="base")
+        transcription_result = transcribe_video(str(UPLOAD_DIR / filename), model_size="base")
 
         if isinstance(transcription_result, tuple) and len(transcription_result) == 2:
             transcript, segments = transcription_result
@@ -55,7 +54,7 @@ def _background_processing(job_id: str, filename: str):
         # 2. Process video (FFmpeg + viral detection)
         logger.info("[Job %s] Step 2: Processing video with FFmpeg...", job_id)
         update_job(job_id, progress=50)
-        result = process_video(Path(process_module.UPLOAD_DIR) / filename, segments, transcript)
+        result = process_video(UPLOAD_DIR / filename, segments, transcript)
         update_job(job_id, progress=70)
 
         # 3. Generate per-clip AI content (Groq)
@@ -99,7 +98,7 @@ def _background_processing(job_id: str, filename: str):
 
         # Delete original uploaded video
         try:
-            (process_module.UPLOAD_DIR / filename).unlink(missing_ok=True)
+            (UPLOAD_DIR / filename).unlink(missing_ok=True)
             logger.info("[Job %s] Original video deleted: %s", job_id, filename)
         except Exception as e:
             logger.warning("[Job %s] Failed to delete original video: %s", job_id, e)
