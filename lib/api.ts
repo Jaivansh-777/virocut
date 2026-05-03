@@ -1,6 +1,6 @@
 /** Real API client for the FastAPI backend. */
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "https://virocut.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 console.log("[API] Base URL:", API_BASE);
 
 // Validate API URL

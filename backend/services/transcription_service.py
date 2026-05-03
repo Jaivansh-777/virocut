@@ -53,7 +53,7 @@ def transcribe_video(input_path: str, model_size: str = "base") -> tuple[str, li
         import whisper
     except ImportError:
         logger.error("openai-whisper not installed. Using fallback transcript.")
-        return _FALLBACK_TRANSCRIPT
+        return _FALLBACK_TRANSCRIPT, []
 
     try:
         # Use absolute path
