@@ -4,9 +4,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import UploadFile
-
-# Shared upload directory (created by main.py at startup)
-UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
+from config import UPLOAD_DIR
 
 
 def save_upload(file: UploadFile) -> tuple[Path, str, int]:

@@ -10,12 +10,9 @@ import re
 import subprocess
 from pathlib import Path
 from uuid import uuid4
+from config import OUTPUT_DIR
 
 logger = logging.getLogger(__name__)
-
-# Clips directory (same level as uploads)
-CLIPS_DIR = Path(__file__).parent.parent / "clips"
-CLIPS_DIR.mkdir(exist_ok=True)
 
 # Viral keywords for scoring
 EMOTION_WORDS = [
@@ -338,7 +335,7 @@ async def process_video(file_path: Path, segments: list = None, transcript: str 
         start = chunk['start']
         clip_duration = min(CLIP_TARGET_DURATION, chunk['end'] - chunk['start'])
         clip_filename = f"clip_{uuid4().hex[:8]}.mp4"
-        output_path = CLIPS_DIR / clip_filename
+        output_path = OUTPUT_DIR / clip_filename
 
         logger.info("Extracting clip %d: start=%.1f, duration=%.1f", i, start, clip_duration)
 

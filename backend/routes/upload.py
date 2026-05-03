@@ -9,7 +9,8 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 
 from utils.file_handler import save_upload
-from main import create_job, update_job, get_job, UPLOAD_DIR
+from main import create_job, update_job, get_job
+from config import UPLOAD_DIR, OUTPUT_DIR
 from services.transcription_service import transcribe_video
 from services.ffmpeg_service import process_video
 from services.ai_service import generate_clip_content
@@ -75,8 +76,7 @@ def _background_processing(job_id: str, filename: str):
 
         # 4. Upload clips to Google Drive
         logger.info("[Job %s] Step 4: Uploading clips to Drive...", job_id)
-        from pathlib import Path as Path2
-        clips_dir = Path2(__file__).parent.parent / "clips"
+        clips_dir = OUTPUT_DIR
 
         for clip in result.get("clips", []):
             local_url = clip.get("url", "")

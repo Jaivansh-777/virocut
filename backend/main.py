@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
+from config import UPLOAD_DIR, OUTPUT_DIR
 
 # Load environment variables from .env file
 load_dotenv()
@@ -93,9 +94,7 @@ async def get_status(job_id: str):
     })
 
 # Serve clips as static files
-CLIPS_DIR = Path(__file__).parent / "clips"
-CLIPS_DIR.mkdir(exist_ok=True)
-app.mount("/clips", StaticFiles(directory=str(CLIPS_DIR)), name="clips")
+app.mount("/clips", StaticFiles(directory=str(OUTPUT_DIR)), name="clips")
 
 # Register route modules
 from routes import upload, process
@@ -111,6 +110,4 @@ logging.basicConfig(
 )
 logger = logging.getLogger("app")
 
-# Create upload dirs
-UPLOAD_DIR = Path(__file__).parent / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
+

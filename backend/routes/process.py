@@ -8,6 +8,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
+from config import UPLOAD_DIR, OUTPUT_DIR
 
 logger = logging.getLogger(__name__)
 
