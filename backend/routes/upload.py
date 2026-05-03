@@ -13,7 +13,12 @@ from job_store import create_job, update_job, get_job
 from config import UPLOAD_DIR, OUTPUT_DIR
 from services.transcription_service import transcribe_video
 from services.ffmpeg_service import process_video
-from services.ai_service import generate_clip_content
+try:
+    from services.ai_service import generate_clip_content
+except ImportError:
+    generate_clip_content = None
+    import logging
+    logging.getLogger(__name__).warning("AI service not available, using fallback")
 from services.drive_service import upload_clip_to_drive
 
 logger = logging.getLogger(__name__)
@@ -72,12 +77,15 @@ def _background_processing(job_id: str, filename: str):
                 clip_transcript = transcript
 
             try:
-                from asyncio import run as aio_run
-                clip_content = aio_run(generate_clip_content(clip_transcript, clip.get("duration", 10)))
+                if generate_clip_content is not None:
+                    from asyncio import run as aio_run
+                    clip_content = aio_run(generate_clip_content(clip_transcript, clip.get("duration", 10)))
 
-                clip["titles"] = clip_content["titles"]
-                clip["hooks"] = clip_content["hooks"]
-                clip["captions"] = clip_content["captions"]
+                    clip["titles"] = clip_content["titles"]
+                    clip["hooks"] = clip_content["hooks"]
+                    clip["captions"] = clip_content["captions"]
+                else:
+                    raise ImportError("AI service not available")
             except Exception as clip_err:
                 logger.warning("[Job %s] Failed to generate AI content for clip: %s", job_id, clip_err)
                 clip["titles"] = ["Generated Clip"]

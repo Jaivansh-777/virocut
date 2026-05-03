@@ -41,19 +41,43 @@ async def health():
 @app.get("/status/{job_id}")
 async def get_status(job_id: str):
     """Return job status, progress, result, or error."""
-    job = get_job(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return JSONResponse(content={
-        "job_id": job["job_id"],
-        "status": job["status"],
-        "progress": job["progress"],
-        "filename": job["filename"],
-        "result": job["result"],
-        "error": job["error"],
-        "created_at": job["created_at"],
-        "updated_at": job["updated_at"],
-    })
+    try:
+        job = get_job(job_id)
+        if not job:
+            return JSONResponse(content={
+                "job_id": job_id,
+                "status": "failed",
+                "progress": 100,
+                "filename": "",
+                "result": None,
+                "error": "Job not found",
+                "created_at": "",
+                "updated_at": "",
+            })
+        return JSONResponse(content={
+            "job_id": job["job_id"],
+            "status": job["status"],
+            "progress": job["progress"],
+            "filename": job["filename"],
+            "result": job["result"],
+            "error": job["error"],
+            "created_at": job["created_at"],
+            "updated_at": job["updated_at"],
+        })
+    except Exception as e:
+        import traceback
+        print(f"Status endpoint error: {e}")
+        print(traceback.format_exc())
+        return JSONResponse(content={
+            "job_id": job_id,
+            "status": "failed",
+            "progress": 100,
+            "filename": "",
+            "result": None,
+            "error": str(e),
+            "created_at": "",
+            "updated_at": "",
+        })
 
 # Serve clips as static files
 app.mount("/clips", StaticFiles(directory=str(OUTPUT_DIR)), name="clips")
