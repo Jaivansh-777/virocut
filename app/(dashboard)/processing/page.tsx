@@ -86,7 +86,7 @@ export default function ProcessingPage() {
 
   if (error) {
     return (
-      <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center">
+      <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4">
         <div className="w-full max-w-md">
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
@@ -95,13 +95,13 @@ export default function ProcessingPage() {
           >
             <Card className="p-8 sm:p-10 text-center bg-slate-900/50 backdrop-blur-xl border border-white/10">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-red-500/[0.12] flex items-center justify-center mx-auto mb-6">
-                <Video className="w-8 h-8 sm:w-10 sm:h-10 text-red-400" />
+                <Video className="w-7 h-7 shrink-0 text-red-400" />
               </div>
               <h1 className="text-lg sm:text-xl font-bold mb-1.5 text-white">Processing Failed</h1>
               <p className="text-sm text-slate-400 mb-6">{error}</p>
               <button
                 onClick={() => router.push("/upload")}
-                className="px-6 py-2.5 rounded-xl text-sm font-medium bg-slate-800/50 hover:bg-slate-800 border border-white/10 text-white transition-colors touch-manipulation min-h-[44px]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-sm font-medium bg-slate-800/50 hover:bg-slate-800 border border-white/10 text-white transition-all duration-200 hover:scale-[1.02] active:scale-95 min-h-[44px] touch-manipulation"
               >
                 Try Again
               </button>
@@ -132,14 +132,14 @@ export default function ProcessingPage() {
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 300 }}
                 >
-                  <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-400" />
+                  <Sparkles className="w-7 h-7 shrink-0 text-indigo-400" />
                 </motion.div>
               ) : (
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                 >
-                  <Video className="w-8 h-8 sm:w-10 sm:h-10 text-indigo-400" />
+                  <Video className="w-7 h-7 shrink-0 text-indigo-400" />
                 </motion.div>
               )}
             </motion.div>

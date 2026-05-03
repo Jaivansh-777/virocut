@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/appStore";
 import { formatFileSize } from "@/lib/utils";
-import { uploadVideo } from "@/lib/api";
+import { uploadVideo, checkBackendHealth } from "@/lib/api";
 
 interface UploadedFile {
   file: File;
@@ -95,6 +95,23 @@ export default function UploadPage() {
     setUploading(true);
 
     try {
+      // Check if backend is reachable (wakes up Render free tier)
+      addToast({ type: "info", message: "Connecting to server..." });
+      const isHealthy = await checkBackendHealth();
+
+      if (!isHealthy) {
+        addToast({
+          type: "warning",
+          message: "Server is waking up (free tier). Retrying in 15 seconds...",
+        });
+        // Wait and retry once
+        await new Promise((resolve) => setTimeout(resolve, 15_000));
+        const retry = await checkBackendHealth();
+        if (!retry) {
+          throw new Error("Server is unavailable. Please try again in a minute.");
+        }
+      }
+
       const uploadedFile = files[0];
 
       // Upload and get job_id (non-blocking)
@@ -121,7 +138,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-3xl mx-auto px-4 sm:px-0">
+    <div className="w-full max-w-3xl mx-auto px-4 sm:px-0 space-y-6 sm:space-y-8">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Upload Video</h1>
         <p className="text-sm text-slate-400 mt-1">
@@ -130,7 +147,7 @@ export default function UploadPage() {
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-        <Card className="p-6 sm:p-8 active:bg-slate-800/50 transition-colors">
+        <Card className="w-full rounded-2xl p-5 sm:p-8 active:bg-slate-800/50 transition-colors">
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -155,7 +172,7 @@ export default function UploadPage() {
               animate={isDragging ? { scale: 1.05 } : { scale: 1 }}
               className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-indigo-500/[0.12] to-purple-500/[0.12] flex items-center justify-center mx-auto mb-5"
             >
-              <Upload className={`w-7 h-7 sm:w-8 sm:h-8 transition-colors ${isDragging ? "text-indigo-400" : "text-slate-500"}`} />
+              <Upload className={`w-7 h-7 transition-colors ${isDragging ? "text-indigo-400" : "text-slate-500"}`} />
             </motion.div>
 
             <h3 className="text-base sm:text-lg font-semibold mb-1.5 text-white">
@@ -179,10 +196,10 @@ export default function UploadPage() {
             exit={{ opacity: 0, y: -20 }}
             className="space-y-3"
           >
-            <h2 className="text-sm font-semibold flex items-center gap-2 text-white">
-              <FileVideo className="w-4 h-4" />
-              Uploaded Files ({files.length})
-            </h2>
+              <h2 className="text-sm font-semibold flex items-center gap-2 text-white">
+                <FileVideo className="w-4 h-4 shrink-0" />
+                Uploaded Files ({files.length})
+              </h2>
 
             {files.map((file) => (
               <Card key={file.id} className="p-4 active:bg-slate-800/50 transition-colors">
@@ -217,8 +234,8 @@ export default function UploadPage() {
                     ) : null}
                   </div>
 
-                  <Button variant="ghost" size="sm" onClick={() => removeFile(file.id)} className="flex-shrink-0 p-1.5 touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center">
-                    <Trash2 className="w-4 h-4 text-slate-500 hover:text-red-400 transition-colors" />
+                  <Button variant="ghost" size="sm" onClick={() => removeFile(file.id)} className="flex-shrink-0 p-1.5 touch-manipulation min-h-[44px] min-w-[44px]">
+                    <Trash2 className="w-4 h-4 shrink-0 text-slate-500 hover:text-red-400 transition-colors" />
                   </Button>
                 </div>
               </Card>
@@ -226,7 +243,7 @@ export default function UploadPage() {
 
             <div className="flex justify-end pt-2">
               <Button onClick={handleUpload} loading={uploading} size="md" className="min-h-[44px] touch-manipulation">
-                <Wand2 className="w-4 h-4 flex-shrink-0" />
+                <Wand2 className="w-4 h-4 shrink-0" />
                 <span className="truncate">Generate Content</span>
               </Button>
             </div>
