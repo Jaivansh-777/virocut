@@ -138,7 +138,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-4 sm:px-0 space-y-6 sm:space-y-8">
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Upload Video</h1>
         <p className="text-sm text-slate-400 mt-1">

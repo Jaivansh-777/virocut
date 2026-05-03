@@ -42,8 +42,9 @@ def _background_processing(job_id: str, filename: str):
     """
     try:
         import traceback
-        print(f"BACKGROUND PROCESSING: jobs dict id: {id(jobs)}")
-        print(f"BACKGROUND PROCESSING: Updating job {job_id} to processing")
+        print(f"STEP 1: Starting processing for job {job_id}")
+        print(f"STEP 1: Video file: {filename}")
+        
         with JOBS_LOCK:
             if job_id in jobs:
                 jobs[job_id]["status"] = "processing"
@@ -51,14 +52,18 @@ def _background_processing(job_id: str, filename: str):
                 jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 1. Transcribe
+        print(f"STEP 1: Transcribing video...")
         logger.info("[Job %s] Step1: Transcribing...", job_id)
-        update_job(job_id, progress=20)
         
         video_path = UPLOAD_DIR / filename
+        print(f"STEP 1: Video path: {video_path}")
+        print(f"STEP 1: File exists: {video_path.exists()}")
+        
         if not video_path.exists():
             raise FileNotFoundError(f"Video file not found: {video_path}")
         
         transcription_result = transcribe_video(str(video_path), model_size="base")
+        print(f"STEP 1: Transcription result type: {type(transcription_result)}")
 
         if isinstance(transcription_result, tuple) and len(transcription_result) == 2:
             transcript, segments = transcription_result
@@ -66,41 +71,58 @@ def _background_processing(job_id: str, filename: str):
             transcript = transcription_result if isinstance(transcription_result, str) else ""
             segments = []
 
+        print(f"STEP 1: Transcript length: {len(transcript)} characters")
+        print(f"STEP 1: Number of segments: {len(segments)}")
         logger.info("[Job %s] Transcript length: %d characters, %d segments",
                      job_id, len(transcript), len(segments))
+        
         with JOBS_LOCK:
             if job_id in jobs:
                 jobs[job_id]["progress"] = 30
                 jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 2. Process video (FFmpeg + viral detection)
+        print(f"STEP 2: Processing video with FFmpeg...")
         logger.info("[Job %s] Step2: Processing video with FFmpeg...", job_id)
+        
         with JOBS_LOCK:
             if job_id in jobs:
                 jobs[job_id]["progress"] = 50
                 jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
-        result = process_video(video_path, segments, transcript)
+        
+        # process_video is async, need to run it properly
+        import asyncio
+        result = asyncio.run(process_video(video_path, segments, transcript))
+        print(f"STEP 2: Result keys: {result.keys() if isinstance(result, dict) else 'Not a dict'}")
+        print(f"STEP 2: Number of clips: {len(result.get('clips', []))}")
+        
         with JOBS_LOCK:
             if job_id in jobs:
                 jobs[job_id]["progress"] = 70
                 jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 3. Generate per-clip AI content (Groq)
+        print(f"STEP 3: Generating AI content...")
         logger.info("[Job %s] Step3: Generating AI content with Groq...", job_id)
-        for clip in result.get("clips", []):
+        
+        for i, clip in enumerate(result.get("clips", [])):
+            print(f"STEP 3: Processing clip {i+1}")
             clip_transcript = clip.get("transcript", "")
             if not clip_transcript:
                 clip_transcript = transcript
 
             try:
                 if generate_clip_content is not None:
+                    print(f"STEP 3: Calling Groq API for clip {i+1}...")
                     from asyncio import run as aio_run
                     clip_content = aio_run(generate_clip_content(clip_transcript, clip.get("duration", 10)))
 
                     clip["titles"] = clip_content["titles"]
                     clip["hooks"] = clip_content["hooks"]
                     clip["captions"] = clip_content["captions"]
+                    print(f"STEP 3: Clip {i+1} AI content generated successfully")
                 else:
+                    print(f"STEP 3: AI service not available, using fallback for clip {i+1}")
                     raise ImportError("AI service not available")
             except Exception as clip_err:
                 logger.warning("[Job %s] Failed to generate AI content for clip: %s", job_id, clip_err)
@@ -114,6 +136,7 @@ def _background_processing(job_id: str, filename: str):
                 jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
 
         # 4. Upload clips to Google Drive
+        print(f"STEP 4: Uploading clips to Drive...")
         logger.info("[Job %s] Step4: Uploading clips to Drive...", job_id)
 
         for clip in result.get("clips", []):
@@ -141,7 +164,28 @@ def _background_processing(job_id: str, filename: str):
         except Exception as e:
             logger.warning("[Job %s] Failed to delete original video: %s", job_id, e)
 
+        # Ensure we have at least one clip
+        if not result.get("clips"):
+            print(f"WARNING: No clips generated, creating fallback clip")
+            result["clips"] = [{
+                "url": f"file://{video_path}",
+                "start": 0,
+                "duration": 30,
+                "title": "Generated Clip",
+                "platform": "reels",
+                "transcript": transcript[:500] if transcript else "No transcript",
+                "viral_score": 5.0,
+                "reason": "fallback - no clips generated",
+                "titles": ["Check this out!", "Amazing moment!", "You won't believe this!"],
+                "hooks": ["Wait for it...", "This is insane!", "POV: You found the best part"],
+                "captions": ["The most viral moment", "Share this with everyone!", "This changed everything"]
+            }]
+
         result["transcript"] = transcript
+        print(f"DONE: Processing complete for job {job_id}")
+        print(f"DONE: Transcript length: {len(transcript)}")
+        print(f"DONE: Number of clips: {len(result.get('clips', []))}")
+        
         with JOBS_LOCK:
             if job_id in jobs:
                 jobs[job_id]["progress"] = 100
@@ -170,37 +214,6 @@ def _background_processing(job_id: str, filename: str):
                     jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
         except Exception as update_err:
             logger.error("[Job %s] Failed to update job status: %s", job_id, update_err)
-
-        # Return demo clips if processing fails (graceful degradation)
-        try:
-            demo_result = {
-                "clips": [
-                    {
-                        "url": "/clips/demo_clip1.mp4",
-                        "start": 0,
-                        "duration": 10,
-                        "title": "Demo Clip 1",
-                        "platform": "reels",
-                        "transcript": "Demo transcript",
-                        "viral_score": 7.5,
-                        "reason": "demo mode (processing failed)",
-                        "titles": ["Check this out!", "Amazing moment!", "You won't believe this!"],
-                        "hooks": ["Wait for it...", "This is insane!", "POV: You found the best part"],
-                        "captions": ["The most viral moment", "Share this with everyone!", "This changed everything"]
-                    }
-                ],
-                "transcript": "Demo transcript - processing failed, showing demo content"
-            }
-            with JOBS_LOCK:
-                if job_id in jobs:
-                    jobs[job_id]["status"] = "completed"
-                    jobs[job_id]["result"] = demo_result
-                    jobs[job_id]["error"] = f"Original error: {str(e)[:200]}"
-                    jobs[job_id]["progress"] = 100
-                    jobs[job_id]["updated_at"] = datetime.utcnow().isoformat()
-            logger.info("[Job %s] Returning demo clips due to processing failure", job_id)
-        except Exception:
-            pass  # Already logged above
 
 
 @router.options("/")

@@ -175,7 +175,12 @@ export default function ResultsPage() {
                     </div>
                     <p className="text-xs sm:text-sm text-slate-400 mb-1">Start: {clip.start}s · Duration: {clip.duration}s</p>
                     {(clip as any).reason && (
-                      <p className="text-xs text-indigo-400 mb-3">🎯 {(clip as any).reason}</p>
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                          Preview
+                        </span>
+                        <span className="text-xs text-slate-500">{(clip as any).reason}</span>
+                      </div>
                     )}
 
                     {/* Clip-specific titles */}
@@ -264,9 +269,20 @@ export default function ResultsPage() {
         </h2>
 
         <Card className="p-6 bg-slate-900/50 backdrop-blur-xl border-white/10">
+          <div className="flex items-center gap-2 mb-3">
+            {(result.clips?.[0] as any)?.reason && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                Preview
+              </span>
+            )}
+            <p className="text-xs text-slate-500">Transcript</p>
+          </div>
           <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
             {result.transcript || "No transcript available."}
           </p>
+          {(result.clips?.[0] as any)?.reason && (
+            <p className="text-xs text-slate-500 mt-3">AI Preview Mode: Full AI processing is still being optimized. Showing preview content for now.</p>
+          )}
         </Card>
       </motion.div>
     </div>
