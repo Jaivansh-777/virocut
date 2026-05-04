@@ -82,11 +82,17 @@ export function Hero() {
             <div className="relative glass-card rounded-2xl p-1.5 sm:p-2 bg-slate-900/50 border border-white/10">
               <div className="aspect-video rounded-2xl overflow-hidden">
                 <video
-                  src="/VIDEO.mp4"
-                  controls
+                  src="/VIDEO_fixed.mp4"
+                  autoPlay
+                  loop
+                  muted
                   playsInline
+                  preload="auto"
+                  controls
                   className="w-full h-full rounded-2xl object-cover bg-slate-900"
-                />
+                >
+                  Your browser does not support the video tag.
+                </video>
               </div>
             </div>
           </div>
