@@ -2,9 +2,9 @@
 
 import os
 import json
-import logging
+from dotenv import load_dotenv
 
-logger = logging.getLogger(__name__)
+load_dotenv()
 
 MODELS = [
     "gemini-1.5-flash-latest",
@@ -22,62 +22,67 @@ FALLBACK_CONTENT = {
 def generate_ai_content(transcript: str) -> dict:
     """
     Generate AI content using Google Gemini API.
-
     Returns dict with 'titles', 'hooks', 'captions' keys.
     Falls back to default content if Gemini fails.
     """
     try:
         import google.generativeai as genai
 
-        api_key = os.environ.get("GEMINI_API_KEY")
+        api_key = os.getenv("GEMINI_API_KEY")
+        print("GEMINI_API_KEY present:", bool(api_key))
+
         if not api_key:
-            logger.warning("GEMINI_API_KEY not set, using fallback")
+            print("WARNING: GEMINI_API_KEY not set, using fallback")
             return FALLBACK_CONTENT
 
         genai.configure(api_key=api_key)
 
         safe_transcript = transcript[:2000]
+        print("Transcript sent to Gemini:", safe_transcript)
 
-        prompt = (
-            f"Given this video transcript: \"{safe_transcript}\"\n\n"
-            "Generate engaging social media content. Return ONLY valid JSON with no markdown or code blocks:\n"
-            "{\n"
-            '  "titles": ["title1", "title2", "title3"],\n'
-            '  "hooks": ["hook1", "hook2", "hook3"],\n'
-            '  "captions": ["caption1", "caption2", "caption3"]\n'
-            "}\n\n"
-            "Make content viral, engaging, and optimized for Reels/TikTok/Shorts."
-        )
+        prompt = f"""Analyze this video transcript and generate viral social media content.
+
+Return STRICT JSON ONLY, no markdown, no explanation:
+
+{{
+  "titles": ["title1", "title2", "title3"],
+  "hooks": ["hook1", "hook2", "hook3"],
+  "captions": ["caption1", "caption2", "caption3"]
+}}
+
+Transcript:
+{safe_transcript}"""
 
         for model_name in MODELS:
             try:
+                print(f"Trying model: {model_name}")
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
-                text = response.text.strip()
 
-                if text.startswith("```"):
-                    text = text.split("```")[1]
-                    if text.startswith("json"):
-                        text = text[4:]
+                raw = response.text.strip()
+                print(f"Raw Gemini response: {raw[:200]}")
 
-                result = json.loads(text.strip())
+                # Strip markdown code fences
+                raw = raw.replace("```json", "").replace("```", "").strip()
 
-                if not all(k in result for k in ("titles", "hooks", "captions")):
-                    raise ValueError("Missing required keys in Gemini response")
+                data = json.loads(raw)
 
-                logger.info("Used model: %s", model_name)
-                return result
+                if all(k in data for k in ("titles", "hooks", "captions")):
+                    print(f"Gemini success with model: {model_name}")
+                    return data
+                else:
+                    print(f"Missing keys in response from {model_name}")
 
             except Exception as e:
-                logger.warning("Model %s failed: %s", model_name, str(e))
+                print(f"Model {model_name} failed: {str(e)}")
                 continue
 
-        logger.error("All Gemini models failed, using fallback")
+        print("ERROR: All Gemini models failed, using fallback")
         return FALLBACK_CONTENT
 
     except ImportError:
-        logger.error("google-generativeai not installed")
+        print("ERROR: google-generativeai not installed")
         return FALLBACK_CONTENT
     except Exception as e:
-        logger.error("Gemini API failed: %s", str(e))
+        print(f"ERROR: Gemini API failed: {str(e)}")
         return FALLBACK_CONTENT
