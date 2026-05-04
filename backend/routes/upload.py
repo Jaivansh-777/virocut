@@ -155,6 +155,11 @@ def process_video(job_id: str, filename: str):
         clips = []
         for i, cm in enumerate(clips_meta):
             ai = generate_ai_content(transcript)
+
+            titles = ai.get("titles") or ["\U0001f525 Viral Moment"]
+            hooks = ai.get("hooks") or ["Wait for it..."]
+            captions = ai.get("captions") or ["This clip is ready to post."]
+
             clip_url = f"/outputs/{cm['filename']}" if cm.get("filename") else f"/uploads/{filename}"
 
             clip = {
@@ -162,10 +167,11 @@ def process_video(job_id: str, filename: str):
                 "download_url": clip_url,
                 "start": cm["start"],
                 "duration": cm["duration"],
-                "title": ai["titles"][0] if ai["titles"] else f"Clip {i + 1}",
-                "titles": ai["titles"],
-                "hooks": ai["hooks"],
-                "captions": ai["captions"],
+                "title": titles[0],
+                "transcript": transcript,
+                "titles": titles,
+                "hooks": hooks,
+                "captions": captions,
                 "platform": "reels",
             }
             clips.append(clip)

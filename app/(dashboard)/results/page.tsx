@@ -12,7 +12,6 @@ import {
   Captions,
   Share2,
   Film,
-  Sparkles,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -38,7 +37,7 @@ function resolveUrl(url: string): string {
 export default function ResultsPage() {
   const router = useRouter();
   const addToast = useAppStore((s) => s.addToast);
-  const [copiedCaption, setCopiedCaption] = useState<number | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [result, setResult] = useState<ProcessResult | null>(null);
 
   useEffect(() => {
@@ -53,14 +52,32 @@ export default function ResultsPage() {
 
   if (!result) return null;
 
-  const sortedClips = [...result.clips].sort((a, b) => ((b as any).viral_score ?? 0) - ((a as any).viral_score ?? 0));
-  const bestClipScore = (sortedClips[0] as any)?.viral_score ?? 0;
+  const clips = result.clips || [];
+  const transcript = result.transcript || (clips[0] as any)?.transcript || "No transcript generated.";
 
-  const copyText = async (index: number, text: string) => {
+  const copyText = async (index: number, clip: any) => {
+    const lines: string[] = [];
+    if (clip.titles?.length) {
+      lines.push("Titles:");
+      clip.titles.forEach((t: string) => lines.push(`- ${t}`));
+    }
+    if (clip.hooks?.length) {
+      lines.push("Hooks:");
+      clip.hooks.forEach((h: string) => lines.push(`- ${h}`));
+    }
+    if (clip.captions?.length) {
+      lines.push("Captions:");
+      clip.captions.forEach((c: string) => lines.push(`- ${c}`));
+    }
+    if (transcript && transcript !== "No transcript generated.") {
+      lines.push("Transcript:");
+      lines.push(transcript);
+    }
+    const text = lines.join("\n\n") || "No content to copy.";
     await navigator.clipboard.writeText(text);
-    setCopiedCaption(index);
+    setCopiedIndex(index);
     addToast({ type: "success", message: "Copied to clipboard!" });
-    setTimeout(() => setCopiedCaption(null), 2000);
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   return (
@@ -96,15 +113,14 @@ export default function ResultsPage() {
       >
         <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2 text-white">
           <Scissors className="w-5 h-5 text-indigo-400" />
-          Generated Clips ({result.clips.length})
+          Generated Clips ({clips.length})
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-          {sortedClips.map((clip, index) => {
+          {clips.map((clip, index) => {
             const PlatformIcon = platformIcons[clip.platform ?? "reels"] || Film;
-            const isBestClip = (clip as any).viral_score === bestClipScore && index === 0;
             const videoUrl = resolveUrl(clip.url);
-            const downloadUrl = resolveUrl(clip.download_url || clip.url);
+            const downloadUrl = resolveUrl((clip as any).download_url || clip.url);
             return (
               <motion.div
                 key={index}
@@ -128,16 +144,11 @@ export default function ResultsPage() {
                     )}
 
                     {clip.platform && (
-                      <div className="absolute top-3 left-3 flex items-center gap-2">
+                      <div className="absolute top-3 left-3">
                         <span className="glass-card px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1 text-slate-300 bg-slate-900/80 backdrop-blur-xl">
                           <PlatformIcon className="w-3 h-3" />
                           {clip.platform}
                         </span>
-                        {isBestClip && (
-                          <span className="px-2 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg">
-                            Best Clip
-                          </span>
-                        )}
                       </div>
                     )}
 
@@ -151,39 +162,46 @@ export default function ResultsPage() {
                   <div className="p-4">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-semibold text-white text-sm sm:text-base">{clip.title ?? `Clip ${index + 1}`}</h3>
-                      {isBestClip && (
-                        <span className="text-xs font-bold bg-gradient-to-r from-yellow-400 to-amber-500 text-black px-2 py-0.5 rounded-md">
-                          #1 VIRAL
-                        </span>
-                      )}
                     </div>
                     <p className="text-xs sm:text-sm text-slate-400 mb-3">Start: {clip.start}s · Duration: {clip.duration}s</p>
 
                     {/* Titles */}
-                    {clip.titles && clip.titles.length > 0 && (
+                    {clip.titles && clip.titles.length > 0 ? (
                       <div className="mb-3">
                         <p className="text-xs text-slate-500 mb-1">Suggested Titles:</p>
                         {clip.titles.map((title: string, i: number) => (
                           <p key={i} className="text-sm text-indigo-400 mb-1 break-words">{title}</p>
                         ))}
                       </div>
+                    ) : (
+                      <div className="mb-3">
+                        <p className="text-xs text-slate-600 italic">No titles generated.</p>
+                      </div>
                     )}
 
                     {/* Hooks */}
-                    {clip.hooks && clip.hooks.length > 0 && (
+                    {clip.hooks && clip.hooks.length > 0 ? (
                       <div className="mb-3">
                         <p className="text-xs text-slate-500 mb-1">Hooks:</p>
                         {clip.hooks.map((hook: string, i: number) => (
                           <p key={i} className="text-sm text-emerald-400 mb-1 break-words">{hook}</p>
                         ))}
                       </div>
+                    ) : (
+                      <div className="mb-3">
+                        <p className="text-xs text-slate-600 italic">No hooks generated.</p>
+                      </div>
                     )}
 
                     {/* Captions */}
-                    {clip.captions && clip.captions.length > 0 && (
+                    {clip.captions && clip.captions.length > 0 ? (
                       <div className="mb-3">
                         <p className="text-xs text-slate-500 mb-1">Caption:</p>
                         <p className="text-sm text-slate-300 break-words">{clip.captions[0]}</p>
+                      </div>
+                    ) : (
+                      <div className="mb-3">
+                        <p className="text-xs text-slate-600 italic">No captions generated.</p>
                       </div>
                     )}
 
@@ -207,20 +225,15 @@ export default function ResultsPage() {
                         </a>
                       )}
 
-                      {(clip.titles?.[0] || clip.hooks?.[0] || clip.captions?.[0]) && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="w-full bg-slate-800/50 border-white/10 hover:bg-slate-800 touch-manipulation min-h-[44px]"
-                          onClick={() => {
-                            const text = [clip.titles?.[0], clip.hooks?.[0], clip.captions?.[0]].filter(Boolean).join("\n\n");
-                            copyText(index, text);
-                          }}
-                        >
-                          {copiedCaption === index ? <Check className="w-4 h-4 flex-shrink-0" /> : <Copy className="w-4 h-4 flex-shrink-0" />}
-                          <span className="truncate">{copiedCaption === index ? "Copied!" : "Copy Content"}</span>
-                        </Button>
-                      )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="w-full bg-slate-800/50 border-white/10 hover:bg-slate-800 touch-manipulation min-h-[44px]"
+                        onClick={() => copyText(index, clip)}
+                      >
+                        {copiedIndex === index ? <Check className="w-4 h-4 flex-shrink-0" /> : <Copy className="w-4 h-4 flex-shrink-0" />}
+                        <span className="truncate">{copiedIndex === index ? "Copied!" : "Copy All Content"}</span>
+                      </Button>
                     </div>
                   </div>
                 </Card>
@@ -243,7 +256,7 @@ export default function ResultsPage() {
 
         <Card className="p-6 bg-slate-900/50 backdrop-blur-xl border-white/10">
           <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-            {result.transcript || "No transcript generated."}
+            {transcript}
           </p>
         </Card>
       </motion.div>
