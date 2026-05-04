@@ -9,7 +9,7 @@ import { ProcessingSteps } from "@/components/ui/Loader";
 import { useAppStore } from "@/store/appStore";
 import { pollJobStatus } from "@/lib/api";
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "https://virocut.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
 const steps = ["Queued...", "Transcribing audio with Whisper...", "Detecting viral moments...", "Generating clips with FFmpeg...", "Creating viral content with Groq...", "Uploading clips to Drive..."];
 
