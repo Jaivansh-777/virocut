@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Play, Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
@@ -80,19 +80,13 @@ export function Hero() {
             <div className="absolute -inset-4 bg-gradient-to-r from-indigo-500/[0.1] via-purple-500/[0.1] to-indigo-500/[0.1] rounded-3xl blur-2xl" />
 
             <div className="relative glass-card rounded-2xl p-1.5 sm:p-2 bg-slate-900/50 border border-white/10">
-              <div className="aspect-video rounded-xl bg-slate-800/50 flex items-center justify-center overflow-hidden">
-                <div className="text-center">
-                  <motion.button
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-3 shadow-xl shadow-indigo-500/25"
-                  >
-                    <Play className="w-7 h-7 text-white ml-0.5" />
-                  </motion.button>
-                  <p className="text-sm text-slate-400 font-medium">
-                    See ViroCut in action
-                  </p>
-                </div>
+              <div className="aspect-video rounded-2xl overflow-hidden">
+                <video
+                  src="/VIDEO.mp4"
+                  controls
+                  playsInline
+                  className="w-full h-full rounded-2xl object-cover bg-slate-900"
+                />
               </div>
             </div>
           </div>
