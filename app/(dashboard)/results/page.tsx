@@ -19,12 +19,21 @@ import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/store/appStore";
 import type { ProcessResult } from "@/lib/api";
 
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
 const platformIcons: Record<string, typeof Film> = {
   reels: Film,
   tiktok: Film,
   shorts: Film,
   twitter: Share2,
 };
+
+function resolveUrl(url: string): string {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  if (url.startsWith("/")) return `${API_BASE}${url}`;
+  return url;
+}
 
 export default function ResultsPage() {
   const router = useRouter();
@@ -44,7 +53,6 @@ export default function ResultsPage() {
 
   if (!result) return null;
 
-  // Sort clips by viral_score descending (best clip first)
   const sortedClips = [...result.clips].sort((a, b) => ((b as any).viral_score ?? 0) - ((a as any).viral_score ?? 0));
   const bestClipScore = (sortedClips[0] as any)?.viral_score ?? 0;
 
@@ -53,18 +61,6 @@ export default function ResultsPage() {
     setCopiedCaption(index);
     addToast({ type: "success", message: "Copied to clipboard!" });
     setTimeout(() => setCopiedCaption(null), 2000);
-  };
-
-  const downloadClip = (url: string, title: string) => {
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = title || "clip.mp4";
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    addToast({ type: "info", message: `Downloading "${title}"...` });
   };
 
   return (
@@ -107,6 +103,8 @@ export default function ResultsPage() {
           {sortedClips.map((clip, index) => {
             const PlatformIcon = platformIcons[clip.platform ?? "reels"] || Film;
             const isBestClip = (clip as any).viral_score === bestClipScore && index === 0;
+            const videoUrl = resolveUrl(clip.url);
+            const downloadUrl = resolveUrl(clip.download_url || clip.url);
             return (
               <motion.div
                 key={index}
@@ -116,24 +114,18 @@ export default function ResultsPage() {
               >
                 <Card className="overflow-hidden bg-slate-900/50 backdrop-blur-xl border-white/10 active:bg-slate-800/50 transition-colors">
                   <div className="relative aspect-[9/16] bg-slate-800/50">
-                    <video
-                      src={clip.url}
-                      className="w-full h-full object-cover"
-                      muted
-                      loop
-                      playsInline
-                    />
-                    <div className="absolute inset-0 bg-black/30" />
-
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <motion.div
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="w-16 h-16 rounded-full bg-white/90 flex items-center justify-center shadow-xl"
-                      >
-                        <Play className="w-7 h-7 text-indigo-500 ml-1" />
-                      </motion.div>
-                    </div>
+                    {videoUrl ? (
+                      <video
+                        src={videoUrl}
+                        controls
+                        className="w-full h-full object-cover rounded-t-xl"
+                        playsInline
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
+                        <Film className="w-16 h-16 text-slate-600" />
+                      </div>
+                    )}
 
                     {clip.platform && (
                       <div className="absolute top-3 left-3 flex items-center gap-2">
@@ -143,25 +135,17 @@ export default function ResultsPage() {
                         </span>
                         {isBestClip && (
                           <span className="px-2 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-lg">
-                            🏆 Best Clip
+                            Best Clip
                           </span>
                         )}
                       </div>
                     )}
 
                     <div className="absolute bottom-3 right-3">
-                        <span className="glass-card px-2 py-1 rounded-lg text-xs font-mono text-slate-300 bg-slate-900/80 backdrop-blur-xl">
-                          {clip.duration}s
-                        </span>
-                      </div>
-
-                      {(clip as any).viral_score !== undefined && (
-                        <div className="absolute top-3 right-3">
-                          <span className="glass-card px-2 py-1 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-400 bg-slate-900/80 backdrop-blur-xl">
-                            Score: {(clip as any).viral_score}
-                          </span>
-                        </div>
-                      )}
+                      <span className="glass-card px-2 py-1 rounded-lg text-xs font-mono text-slate-300 bg-slate-900/80 backdrop-blur-xl">
+                        {clip.duration}s
+                      </span>
+                    </div>
                   </div>
 
                   <div className="p-4">
@@ -173,17 +157,9 @@ export default function ResultsPage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs sm:text-sm text-slate-400 mb-1">Start: {clip.start}s · Duration: {clip.duration}s</p>
-                    {(clip as any).reason && (
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                          Preview
-                        </span>
-                        <span className="text-xs text-slate-500">{(clip as any).reason}</span>
-                      </div>
-                    )}
+                    <p className="text-xs sm:text-sm text-slate-400 mb-3">Start: {clip.start}s · Duration: {clip.duration}s</p>
 
-                    {/* Clip-specific titles */}
+                    {/* Titles */}
                     {clip.titles && clip.titles.length > 0 && (
                       <div className="mb-3">
                         <p className="text-xs text-slate-500 mb-1">Suggested Titles:</p>
@@ -193,7 +169,7 @@ export default function ResultsPage() {
                       </div>
                     )}
 
-                    {/* Clip-specific hooks */}
+                    {/* Hooks */}
                     {clip.hooks && clip.hooks.length > 0 && (
                       <div className="mb-3">
                         <p className="text-xs text-slate-500 mb-1">Hooks:</p>
@@ -203,7 +179,7 @@ export default function ResultsPage() {
                       </div>
                     )}
 
-                    {/* Clip-specific caption */}
+                    {/* Captions */}
                     {clip.captions && clip.captions.length > 0 && (
                       <div className="mb-3">
                         <p className="text-xs text-slate-500 mb-1">Caption:</p>
@@ -212,26 +188,23 @@ export default function ResultsPage() {
                     )}
 
                     <div className="space-y-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="w-full bg-slate-800/50 border-white/10 hover:bg-slate-800 touch-manipulation min-h-[44px]"
-                        onClick={() => downloadClip(clip.url, clip.title ?? `clip-${index + 1}`)}
-                      >
-                        <Download className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">Download</span>
-                      </Button>
-
-                      {clip.view_url && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="w-full bg-slate-800/50 border-white/10 hover:bg-slate-800 touch-manipulation min-h-[44px]"
-                          onClick={() => window.open(clip.view_url, '_blank')}
+                      {downloadUrl && (
+                        <a
+                          href={downloadUrl}
+                          download
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full"
                         >
-                          <Share2 className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">Open in Drive</span>
-                        </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="w-full bg-slate-800/50 border-white/10 hover:bg-slate-800 touch-manipulation min-h-[44px]"
+                          >
+                            <Download className="w-4 h-4 flex-shrink-0" />
+                            <span className="truncate">Download</span>
+                          </Button>
+                        </a>
                       )}
 
                       {(clip.titles?.[0] || clip.hooks?.[0] || clip.captions?.[0]) && (
@@ -240,7 +213,7 @@ export default function ResultsPage() {
                           size="sm"
                           className="w-full bg-slate-800/50 border-white/10 hover:bg-slate-800 touch-manipulation min-h-[44px]"
                           onClick={() => {
-                            const text = [clip.titles?.[0], clip.hooks?.[0], clip.captions?.[0]].filter(Boolean).join('\n\n');
+                            const text = [clip.titles?.[0], clip.hooks?.[0], clip.captions?.[0]].filter(Boolean).join("\n\n");
                             copyText(index, text);
                           }}
                         >
@@ -261,7 +234,7 @@ export default function ResultsPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
+        transition={{ delay: 0.3 }}
       >
         <h2 className="text-base sm:text-lg font-semibold mb-4 flex items-center gap-2 text-white">
           <Captions className="w-5 h-5 text-blue-400" />
@@ -269,20 +242,9 @@ export default function ResultsPage() {
         </h2>
 
         <Card className="p-6 bg-slate-900/50 backdrop-blur-xl border-white/10">
-          <div className="flex items-center gap-2 mb-3">
-            {(result.clips?.[0] as any)?.reason && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                Preview
-              </span>
-            )}
-            <p className="text-xs text-slate-500">Transcript</p>
-          </div>
           <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
-            {result.transcript || "No transcript available."}
+            {result.transcript || "No transcript generated."}
           </p>
-          {(result.clips?.[0] as any)?.reason && (
-            <p className="text-xs text-slate-500 mt-3">AI Preview Mode: Full AI processing is still being optimized. Showing preview content for now.</p>
-          )}
         </Card>
       </motion.div>
     </div>

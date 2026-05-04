@@ -51,9 +51,10 @@ def process_video(job_id: str, filename: str):
 
         # STEP 3 — Create clip with AI content attached
         print("STEP 3: Creating clip with AI content...")
-        clip_url = f"/clips/{filename}"
+        clip_url = f"/uploads/{filename}"
         clip = {
             "url": clip_url,
+            "download_url": clip_url,
             "start": 0,
             "duration": 10,
             "title": ai["titles"][0] if ai["titles"] else "Viral Clip",

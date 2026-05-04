@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from config import OUTPUT_DIR
+from config import UPLOAD_DIR, OUTPUT_DIR
 
-# Create output dir for serving clips
+UPLOAD_DIR.mkdir(exist_ok=True)
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="ViroCut API", version="1.0.0")
@@ -44,7 +44,8 @@ async def get_status(job_id: str):
     return jobs[job_id]
 
 # Serve clips
-app.mount("/clips", StaticFiles(directory=str(OUTPUT_DIR)), name="clips")
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
 
 # Include upload routes
 from routes import upload
